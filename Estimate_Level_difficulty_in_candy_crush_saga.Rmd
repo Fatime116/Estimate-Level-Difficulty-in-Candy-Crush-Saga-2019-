@@ -1,0 +1,121 @@
+#Candy Crush Saga
+
+# Loading in packages
+```{r}
+library(tidyverse)
+```
+
+# Reading in the data
+
+2. The data set
+The dataset we will use contains one week of data from a sample of players who played Candy Crush back in 2014. The data is also from a single episode, that is, a set of 15 levels. It has the following columns:
+
+```{r}
+data <- read_csv("datasets/candy_crush.csv")
+data
+```
+
+
+# Printing out the first couple of rows
+```{r}
+head(data)
+```
+
+3. Checking the data set
+Now that we have loaded the dataset let's count how many players we have in the sample and how many days worth of data we have.
+```{r}
+print("Number of players:")
+
+unique(data$player_id)
+
+print("Period for which we have data:")
+
+length(unique(data$dt))
+```
+4. Computing level difficulty
+Within each Candy Crush episode, there is a mix of easier and tougher levels. Luck and individual skill make the number of attempts required to pass a level different from player to player. The assumption is that difficult levels require more attempts on average than easier ones. That is, the harder a level is, the lower the probability to pass that level in a single attempt is.
+
+```{r}
+# Calculating level difficulty
+difficulty <- data%>%
+group_by(level)%>%
+summarise(attempts=sum(num_attempts),wins=sum(num_success))%>%
+mutate(p_win=wins/attempts)
+
+
+# Printing out the level difficulty
+
+difficulty
+```
+
+5. Plotting difficulty profile
+
+```{r}
+# Plotting the level difficulty profile
+
+difficulty_profile<-ggplot(difficulty,aes(x=level,y=p_win))+
+geom_line()+
+scale_x_continuous(breaks = 1:15)+
+scale_y_continuous(label = scales::percent)
+
+difficulty_profile
+```
+
+6. Spotting hard levels
+What constitutes a hard level is subjective. However, to keep things simple, we could define a threshold of difficulty, say 10%, and label levels with pwin < 10% as hard. It's relatively easy to spot these hard levels on the plot, but we can make the plot more friendly by explicitly highlighting the hard levels.
+
+```{r}
+# Adding points and a dashed line
+difficulty_profile<-ggplot(difficulty,aes(x=level,y=p_win))+
+geom_line()+
+scale_x_continuous(breaks = 1:15)+
+scale_y_continuous(label = scales::percent)
+
+difficulty_profile
+
+difficulty_profile<-ggplot(difficulty,aes(x=level,y=p_win))+
+geom_line()+
+geom_point()+
+scale_x_continuous(breaks = 1:15)+
+scale_y_continuous(label = scales::percent)+
+geom_hline(yintercept=0.1,linetype="dashed")
+
+difficulty_profile
+```
+7. Computing uncertainty
+
+```{r}
+# Computing the standard error of p_win for each level
+
+
+difficulty <- difficulty %>%
+    mutate(error = sqrt(p_win * (1 - p_win) / attempts))
+difficulty
+```
+8. Showing uncertainty
+Now that we have a measure of uncertainty for each levels' difficulty estimate let's use error bars to show this uncertainty in the plot. We will set the length of the error bars to one standard error. The upper limit and the lower limit of each error bar should then be pwin + σerror and pwin - σerror, respectively.
+
+```{r}
+# Adding standard error bars
+
+difficulty <- difficulty %>%
+    mutate(error = sqrt(p_win * (1 - p_win) / attempts))
+difficulty
+
+ggplot(difficulty, aes(x=level,y=p_win))+
+scale_x_continuous(breaks = 1:15)+
+scale_y_continuous(label = scales::percent)+
+geom_errorbar(aes(ymin = p_win - error, ymax = p_win + error))
+
+
+```
+9. A final metric
+```{r}
+# The probability of completing the episode without losing a single time
+p <- prod(difficulty$p_win)
+
+# Printing it out
+p
+```
+
+
